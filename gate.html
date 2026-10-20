@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow,noarchive">
+<title>CO01</title>
+<style>
+  :root { --bg: #f6f5f2; --fg: #1b1b1a; --mute: #6b6a66; --line: #d9d7d1; --err: #b3261e; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #151514; --fg: #ecebe7; --mute: #9a9892; --line: #3a3936; --err: #f2867e; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: var(--bg); color: var(--fg);
+         font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; padding: 16px; }
+  form { width: 100%; max-width: 320px; }
+  h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
+  p { margin: 0 0 20px; color: var(--mute); font-size: 14px; }
+  input, button { width: 100%; font: inherit; padding: 10px 12px; border-radius: 8px; }
+  input { border: 1px solid var(--line); background: transparent; color: var(--fg); margin-bottom: 10px; }
+  button { border: 0; background: var(--fg); color: var(--bg); font-weight: 600; cursor: pointer; }
+  button:disabled { opacity: .6; cursor: wait; }
+  #msg { min-height: 1.5em; margin-top: 10px; font-size: 14px; color: var(--err); }
+</style>
+</head>
+<body>
+<form id="f" autocomplete="off">
+  <h1>CO01</h1>
+  <p>This page is private. Enter the password to read it.</p>
+  <input id="pw" type="password" placeholder="Password" aria-label="Password" autofocus required>
+  <button id="go" type="submit">Open</button>
+  <div id="msg" role="alert"></div>
+</form>
+<script>
+const SALT = "__SALT__", ITER = __ITER__, PAYLOAD = "__PAYLOAD__";
+const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+const unb64 = buf => { let s = ""; new Uint8Array(buf).forEach(b => s += String.fromCharCode(b)); return btoa(s); };
+
+async function open_with(raw) {
+  const key = await crypto.subtle.importKey("raw", raw, "AES-GCM", false, ["decrypt"]);
+  const data = b64(PAYLOAD);
+  const html = new TextDecoder().decode(await crypto.subtle.decrypt({ name: "AES-GCM", iv: data.slice(0, 12) }, key, data.slice(12)));
+  const k = unb64(raw);
+  try { sessionStorage.setItem("co01k", k); } catch (e) {}
+  document.open();
+  document.write(html.replace("<head>", `<head>\n<script>window.CO01K = "${k}";<\/script>`));
+  document.close();
+}
+
+async function derive(pw) {
+  const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(pw), "PBKDF2", false, ["deriveBits"]);
+  return crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: b64(SALT), iterations: ITER }, base, 256);
+}
+
+document.getElementById("f").onsubmit = async e => {
+  e.preventDefault();
+  const go = document.getElementById("go"), msg = document.getElementById("msg");
+  go.disabled = true; msg.textContent = "";
+  try { await open_with(await derive(document.getElementById("pw").value)); }
+  catch (err) { msg.textContent = "Wrong password."; go.disabled = false; }
+};
+
+let saved = null;
+try { saved = sessionStorage.getItem("co01k"); } catch (e) {}
+if (saved) open_with(b64(saved)).catch(() => { try { sessionStorage.removeItem("co01k"); } catch (e) {} });
+</script>
+</body>
+</html>
