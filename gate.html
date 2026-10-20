@@ -39,7 +39,6 @@ async function open_with(raw) {
   const data = b64(PAYLOAD);
   const html = new TextDecoder().decode(await crypto.subtle.decrypt({ name: "AES-GCM", iv: data.slice(0, 12) }, key, data.slice(12)));
   const k = unb64(raw);
-  try { sessionStorage.setItem("co01k", k); } catch (e) {}
   document.open();
   document.write(html.replace("<head>", `<head>\n<script>window.CO01K = "${k}";<\/script>`));
   document.close();
@@ -58,9 +57,7 @@ document.getElementById("f").onsubmit = async e => {
   catch (err) { msg.textContent = "Wrong password."; go.disabled = false; }
 };
 
-let saved = null;
-try { saved = sessionStorage.getItem("co01k"); } catch (e) {}
-if (saved) open_with(b64(saved)).catch(() => { try { sessionStorage.removeItem("co01k"); } catch (e) {} });
+try { sessionStorage.removeItem("co01k"); } catch (e) {}
 </script>
 </body>
 </html>
