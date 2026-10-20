@@ -73,8 +73,10 @@ swap(r"function media_load\(v\) \{.*?\n\}\n", """function media_load(v) {
 """)
 # posters: keep them out of the attribute, decrypt once the page is up
 html, n = re.subn(r'poster="(media/[^"]+)"', r'data-poster-enc="\1"', html)
+html, n_img = re.subn(r'(<img\b[^>]*?)\bsrc="(media/[^"]+)"', r'\1data-img-enc="\2"', html)
 html = html.replace("</body>", """<script>
 document.querySelectorAll("[data-poster-enc]").forEach(v => co01_url(v.dataset.posterEnc).then(u => { if (!v.poster) v.poster = u; }).catch(() => {}));
+document.querySelectorAll("img[data-img-enc]").forEach(v => co01_url(v.dataset.imgEnc).then(u => { v.src = u; }).catch(() => {}));
 </script>
 </body>""", 1)
 html = html.replace("<head>", '<head>\n<meta name="robots" content="noindex,nofollow,noarchive">', 1)
@@ -89,4 +91,4 @@ gate = gate.replace("__SALT__", base64.b64encode(salt).decode()).replace("__ITER
 (OUT / "index.html").write_text(gate, encoding="utf-8")
 (OUT / ".nojekyll").write_text("")
 (OUT / "robots.txt").write_text("User-agent: *\nDisallow: /\n")
-print(f"built {OUT}: {len(enc)} media files ({n} posters), page {len(gate) // 1024} KB")
+print(f"built {OUT}: {len(enc)} media files ({n} posters, {n_img} images), page {len(gate) // 1024} KB")
